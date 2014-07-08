@@ -1,0 +1,95 @@
+#!/usr/bin/env python
+
+import re
+import subprocess
+from datetime import datetime
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+FMT = '%H:%M'
+BAR_WIDTH = 2
+
+ranges = []
+data = []
+
+
+def purify(strings):
+  """Public: Takes a list of strings, removes all empty strings from it
+  and returns the result as list of strings.
+
+  strings - List of strings
+
+  Examples
+
+  purify(['ab', '', 'cd', 'ef', '', 'gh])
+  # => ['ab', 'cd', 'ef', 'gh]
+
+  Returns a list of strings with length > 0.
+  """
+  return [x for x in strings if x]
+
+
+# Get the time data
+
+# Optional: Get more uptime data. Depending on the system, a different log
+# file may be in use. Adapt accordingly.
+#
+# process = subprocess.Popen('last -f /var/log/wtmp.1', shell=True,
+#                            stdout=subprocess.PIPE,
+#                            stderr=subprocess.STDOUT)
+process = subprocess.Popen('last', shell=True, stdout=subprocess.PIPE,
+                           stderr=subprocess.STDOUT)
+for line in process.stdout.readlines():
+  if re.search('^reboot', line):
+    # Get the date
+    date = re.split('Mon|Tue|Wed|Thu|Fri|Sat|Sun', line)[1]
+    date = purify(re.split('\s', date))
+    # 2, 4
+    ranges.append([date[2], date[4]])
+
+
+for range in ranges:
+    diff = datetime.strptime(range[1], FMT) - datetime.strptime(range[0],
+                                                                FMT)
+    data.append(diff.seconds)
+
+
+
+# Plot
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+
+# Plot a line
+
+# Every data point has to be `stretched' for the line plot
+x_strech = [i * BAR_WIDTH + (BAR_WIDTH / 2) for i, x  in enumerate(data)]
+# Optional: Make the graph a bit easier to consume:
+#
+# data = [x + x / 2 for x in data]
+ax.plot(x_strech, data, 'r-', linewidth=5)
+
+
+# Plot bars
+
+for i, data_point in enumerate(data):
+    ax.bar(i * BAR_WIDTH, data_point, width=BAR_WIDTH, alpha=.5,
+           color='#343434', linewidth=2, edgecolor='#FFFFFF')
+    # Optional: Add text to the top of each bar
+    #
+    # ax.text(i * BAR_WIDTH, data_point, str(data_point) + ' sec.',
+    #         rotation='vertical')
+
+    # Mark bars where x > 50000
+    if data_point > 50000:
+        ax.plot(i * BAR_WIDTH + (BAR_WIDTH / 2), data_point, 'D',
+                color = '#00AA00', linewidth=1)
+
+# Set the labels
+plt.xticks(np.arange(len(data)) * BAR_WIDTH, data, rotation=75,
+           size='small', color='#343434')
+
+
+plt.show()
